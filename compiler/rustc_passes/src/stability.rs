@@ -19,8 +19,8 @@ use rustc_hir::{
     UsePath, Variant,
 };
 use rustc_lint_defs::builtin::{
-    DUPLICATE_FEATURES, INEFFECTIVE_UNSTABLE_REEXPORTS, INEFFECTIVE_UNSTABLE_TRAIT_IMPL,
-    STABLE_FEATURES, UNSTABLE_IMPORTS,
+    DUPLICATE_FEATURES, INEFFECTIVE_DEPRECATED_REEXPORTS, INEFFECTIVE_UNSTABLE_REEXPORTS,
+    INEFFECTIVE_UNSTABLE_TRAIT_IMPL, STABLE_FEATURES, UNSTABLE_IMPORTS,
 };
 use rustc_middle::hir::nested_filter;
 use rustc_middle::middle::lib_features::{FeatureStability, LibFeatures};
@@ -871,6 +871,22 @@ impl<'tcx> Visitor<'tcx> for Checker<'tcx> {
                             None,
                         );
                     }
+                }
+            }
+
+            // `#[deprecated]` on a `use` item is accepted but never consulted: deprecation
+            // is checked on the resolved item, not on the imports a path went through.
+            // Warn until deprecating re-exports is supported (#30827).
+            hir::ItemKind::Use(..) => {
+                if let Some(attr_span) =
+                    find_attr!(self.tcx, item.owner_id.def_id, Deprecated { span, .. } => *span)
+                {
+                    self.tcx.emit_node_span_lint(
+                        INEFFECTIVE_DEPRECATED_REEXPORTS,
+                        item.hir_id(),
+                        attr_span,
+                        diagnostics::IneffectiveDeprecatedReexport,
+                    );
                 }
             }
 

@@ -55,6 +55,7 @@ pub mod hardwired {
             HIDDEN_GLOB_REEXPORTS,
             ILL_FORMED_ATTRIBUTE_INPUT,
             INCOMPLETE_INCLUDE,
+            INEFFECTIVE_DEPRECATED_REEXPORTS,
             INEFFECTIVE_UNSTABLE_REEXPORTS,
             INEFFECTIVE_UNSTABLE_TRAIT_IMPL,
             INLINE_NO_SANITIZE,
@@ -2819,6 +2820,46 @@ declare_lint! {
     pub USELESS_DEPRECATED,
     Deny,
     "detects deprecation attributes with no effect",
+}
+
+declare_lint! {
+    /// The `ineffective_deprecated_reexports` lint detects `#[deprecated]`
+    /// attributes on `use` items, where the attribute currently has no effect.
+    ///
+    /// ### Example
+    ///
+    #[cfg_attr(bootstrap, doc = "```rust,ignore")]
+    #[cfg_attr(not(bootstrap), doc = "```rust")]
+    /// mod inner {
+    ///     pub struct Item;
+    /// }
+    ///
+    /// #[deprecated]
+    /// pub use inner::Item as Alias;
+    /// # fn main() {}
+    #[doc = "```"]
+    ///
+    #[cfg_attr(not(bootstrap), doc = "{{produces}}")]
+    ///
+    /// ### Explanation
+    ///
+    /// Deprecation is checked on the item a path resolves to, and once a path
+    /// has been resolved the `use` items it went through are no longer part of
+    /// it. A `#[deprecated]` attribute on a `use` item is therefore accepted
+    /// and then ignored: it causes no warning for users of that path. If the
+    /// item itself is deprecated, they are warned about the item, not about
+    /// the path. This is a long-standing bug, tracked in [issue #30827].
+    ///
+    /// Until it is fixed, deprecate the item itself, or replace the re-export
+    /// with a `#[deprecated]` type alias or wrapper function. A type alias does
+    /// not carry a tuple or unit struct's constructor and cannot be used in
+    /// `use Alias::Variant`, and a module or macro re-export has no
+    /// equivalent.
+    ///
+    /// [issue #30827]: https://github.com/rust-lang/rust/issues/30827
+    pub INEFFECTIVE_DEPRECATED_REEXPORTS,
+    Warn,
+    "detects ineffective `#[deprecated]` attributes on `use` items",
 }
 
 declare_lint! {
